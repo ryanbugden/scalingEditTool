@@ -13,6 +13,10 @@ a more traditional operation without angle keeping.
 
 
 
+CALCULATION = "arcDimensions"  # "arcLength", or "arcDimensions"
+
+
+
 from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
 from mojo.UI import getDefault
@@ -36,21 +40,32 @@ def diff(a, b, simplified=False):
     return float(abs(a - b)) if simplified is False else float(a - b)
     
     
-def calArcLength(p1, p2, p1Out, p2In):
+def calcArcLength(p1, p2, p1Out, p2In):
     return approximateCubicArcLength((p1.x, p1.y), (p1Out.x, p1Out.y), (p2In.x, p2In.y), (p2.x, p2.y))
+    
+    
+def calcArcDimensions(p1, p2, p1Out, p2In):
+    xMin, yMin, xMax, yMax = calcCubicBounds((p1.x, p1.y), (p1Out.x, p1Out.y), (p2In.x, p2In.y), (p2.x, p2.y))
+    distX = xMax - xMin
+    distY = yMax - yMin
+    return distX, distY
     
 
 def pointData(p1, p2, p1Out, p2In, simplified):
     # distances between points
-    arcLength = calArcLength(p1, p2, p1Out, p2In)
+    if CALCULATION == "arcLength":
+        arcLength = calcArcLength(p1, p2, p1Out, p2In)
+        distX, distY = arcLength, arcLength
+    elif CALCULATION == "arcDimensions":
+        distX, distY = calcArcDimensions(p1, p2, p1Out, p2In)
     # relative offcurve coordinates
     p1Bcp = p1Out.x - p1.x, p1Out.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
     # BCP-to-distance-ratios
-    p1xr = p1Bcp[0] / float(arcLength) if arcLength else 0
-    p2xr = p2Bcp[0] / float(arcLength) if arcLength else 0
-    p1yr = p1Bcp[1] / float(arcLength) if arcLength else 0
-    p2yr = p2Bcp[1] / float(arcLength) if arcLength else 0
+    p1xr = p1Bcp[0] / float(distX) if distX else 0
+    p2xr = p2Bcp[0] / float(distX) if distX else 0
+    p1yr = p1Bcp[1] / float(distY) if distY else 0
+    p2yr = p2Bcp[1] / float(distY) if distY else 0
     # y-to-x- and x-to-y-ratios of BCPs
     p1yx, p1xy, p2yx, p2xy = None, None, None, None
     if 0 not in p1Bcp:
@@ -232,9 +247,15 @@ class ScalingEditTool(EditingTool):
                     prevType, nextType = i[18], i[19]  # previous and next segment types
 
                     # scale curve
-                    arcLength = calArcLength(p1, p2, p1Out, p2In)
-                    p1OutX, p1OutY = arcLength * p1xr + p1.x, arcLength * p1yr + p1.y
-                    p2InX, p2InY = arcLength * p2xr + p2.x, arcLength * p2yr + p2.y
+                    if CALCULATION == "arcLength":
+                        arcLength = calcArcLength(p1, p2, p1Out, p2In)
+                        distX, distY = arcLength, arcLength
+                    elif CALCULATION == "arcDimensions":
+                        distX, distY = calcArcDimensions(p1, p2, p1Out, p2In)
+
+                    p1OutX, p1OutY = distX * p1xr + p1.x, distY * p1yr + p1.y
+                    p2InX, p2InY = distX * p2xr + p2.x, distY * p2yr + p2.y
+                    
                     p1Out.x, p1Out.y, p2In.x, p2In.y = p1OutX, p1OutY, p2InX, p2InY
 
                     # correct offCurve angles
