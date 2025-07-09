@@ -36,22 +36,22 @@ def diff(a, b, simplified=False):
     return float(abs(a - b)) if simplified is False else float(a - b)
     
     
-def calArcLength(p1, p2, p1Ut, p2In):
-    return approximateCubicArcLength((p1.x, p1.y), (p1Ut.x, p1Ut.y), (p2In.x, p2In.y), (p2.x, p2.y))
+def calArcLength(p1, p2, p1Out, p2In):
+    return approximateCubicArcLength((p1.x, p1.y), (p1Out.x, p1Out.y), (p2In.x, p2In.y), (p2.x, p2.y))
     
 
-def pointData(p1, p2, p1Ut, p2In, simplified):
-    # distances between points:
-    arcLength = calArcLength(p1, p2, p1Ut, p2In)
+def pointData(p1, p2, p1Out, p2In, simplified):
+    # distances between points
+    arcLength = calArcLength(p1, p2, p1Out, p2In)
     # relative offcurve coordinates
-    p1Bcp = p1Ut.x - p1.x, p1Ut.y - p1.y
+    p1Bcp = p1Out.x - p1.x, p1Out.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
-    # bcp-to-distance-ratios:
+    # BCP-to-distance-ratios
     p1xr = p1Bcp[0] / float(arcLength) if arcLength else 0
     p2xr = p2Bcp[0] / float(arcLength) if arcLength else 0
     p1yr = p1Bcp[1] / float(arcLength) if arcLength else 0
     p2yr = p2Bcp[1] / float(arcLength) if arcLength else 0
-    # y-to-x- and x-to-y-ratios of bcps:
+    # y-to-x- and x-to-y-ratios of BCPs
     p1yx, p1xy, p2yx, p2xy = None, None, None, None
     if 0 not in p1Bcp:
         p1yx = p1Bcp[1] / float(p1Bcp[0])
@@ -59,22 +59,22 @@ def pointData(p1, p2, p1Ut, p2In, simplified):
     if 0 not in p2Bcp:
         p2yx = p2Bcp[1] / float(p2Bcp[0])
         p2xy = 1 / p2yx
-    # direction multiplier of bcp-coordinates, 1 or -1:
+    # direction multiplier of BCP-coordinates, 1 or -1
     p1dx = -1 if p1Bcp[0] < 0 else 1
     p1dy = -1 if p1Bcp[1] < 0 else 1
     p2dx = -1 if p2Bcp[0] < 0 else 1
     p2dy = -1 if p2Bcp[1] < 0 else 1
-    # 4 points, 4 bcp-distance-ratios, 4 x-y-ratios, 4 directions,
-    return p1, p2, p1Ut, p2In, p1xr, p1yr, p2xr, p2yr, p1yx, p1xy, p2yx, p2xy, p1dx, p1dy, p2dx, p2dy
+    # 4 points, 4 bcp-distance-ratios, 4 x-y-ratios, 4 directions
+    return p1, p2, p1Out, p2In, p1xr, p1yr, p2xr, p2yr, p1yx, p1xy, p2yx, p2xy, p1dx, p1dy, p2dx, p2dy
 
 
 def smoothLines(p, pp, offCurve):
-    # bcp length from relative coordinates
+    # BCP length from relative coordinates
     bcp = offCurve.x - p.x, offCurve.y - p.y
     bcpLen = sqrt(bcp[0] ** 2 + bcp[1] ** 2)
-    # distances between points:
+    # distances between points
     distX, distY = diff(p.x, pp.x), diff(p.y, pp.y)
-    # new relative coordinates:
+    # new relative coordinates
     newX, newY = 0, 0
     if distX:
         lineYXr = distY / float(distX)
@@ -82,7 +82,7 @@ def smoothLines(p, pp, offCurve):
     if distY:
         lineXYr = distX / float(distY)
         newY = bcpLen / sqrt(lineXYr ** 2 + 1)
-    # line direction:
+    # line direction
     ldrx = -1 if p.x < pp.x else 1
     ldry = -1 if p.y < pp.y else 1
     # new absolute coordinates
@@ -90,10 +90,10 @@ def smoothLines(p, pp, offCurve):
 
 
 def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
-    # bcp length from relative coordinates:
+    # BCP length from relative coordinates
     bcp = offCurve.x - p.x, offCurve.y - p.y
     bcpLen = sqrt(bcp[0] ** 2 + bcp[1] ** 2)
-    # new relative coordinates:
+    # new relative coordinates
     newX = bcpLen / sqrt(pyx ** 2 + 1)
     newY = bcpLen / sqrt(pxy ** 2 + 1)
     # new absolute coordinates
@@ -190,7 +190,7 @@ class ScalingEditTool(EditingTool):
     def buildScaleDataList(self):
         self.scaleData = []
         if self.glyph is not None and self.glyph.selectedPoints != ():
-            contours = []  # collect contours that have selected points:
+            contours = []  # collect contours that have selected points
             for p in self.glyph.selectedPoints:
                 if p.contour not in contours and len(p.contour) > 1:
                     contours.append(p.contour)
@@ -207,15 +207,15 @@ class ScalingEditTool(EditingTool):
                         if p1.selected and not p2.selected or p2.selected and not p1.selected:
                             p3 = segms[pI - 1].points[-1]  # next onCurve point after p2
                             p0 = segms[pI - i3 - 1].points[-1] if segm_len != 3 else p3  # previous onCurve point, p0 is p3 in 3-point outline
-                            p1Ut = segms[pI - 2].points[0]  # out-point of p1
+                            p1Out = segms[pI - 2].points[0]  # out-point of p1
                             p2In = segms[pI - 2].points[-2]  # in-point of p2
                             prevType = segms[pI - i3].type  # previous segment type
                             nextType = segms[pI - 1].type  # next segment type
-                            if p1Ut.selected and not p1.selected and p1.smooth and prevType != 'line':
-                                p1.smooth = False  # to avoid changing previous segment in case p1Ut is selected separately
+                            if p1Out.selected and not p1.selected and p1.smooth and prevType != 'line':
+                                p1.smooth = False  # to avoid changing previous segment in case p1Out is selected separately
                             if p2In.selected and not p2.selected and p2.smooth and nextType != 'line':
                                 p2.smooth = False  # to avoid changing next segment in case p2In is selected separately
-                            self.scaleData.append(pointData(p1, p2, p1Ut, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
+                            self.scaleData.append(pointData(p1, p2, p1Out, p2In, self.settings['simplified']) + (p0, p3, prevType, nextType))
 
 
     def scalePoints(self, arrowKeyDown=0):
@@ -224,7 +224,7 @@ class ScalingEditTool(EditingTool):
                 simplified, smoothsToo, selectOnly = self.settings['simplified'], self.settings['smoothsToo'], self.settings['selectOnly']
                 for i in self.scaleData:
                     p1, p2 = i[0], i[1]  # two onCurve points of the segment to be scaled
-                    p1Ut, p2In = i[2], i[3]  # out and in offCurve points of the curve
+                    p1Out, p2In = i[2], i[3]  # out and in offCurve points of the curve
                     p1xr, p1yr, p2xr, p2yr = i[4], i[5], i[6], i[7]
                     p1yx, p1xy, p2yx, p2xy = i[8], i[9], i[10], i[11]
                     p1dx, p1dy, p2dx, p2dy = i[12], i[13], i[14], i[15]
@@ -232,21 +232,21 @@ class ScalingEditTool(EditingTool):
                     prevType, nextType = i[18], i[19]  # previous and next segment types
 
                     # scale curve
-                    arcLength = calArcLength(p1, p2, p1Ut, p2In)
-                    p1UtX, p1UtY = arcLength * p1xr + p1.x, arcLength * p1yr + p1.y
+                    arcLength = calArcLength(p1, p2, p1Out, p2In)
+                    p1OutX, p1OutY = arcLength * p1xr + p1.x, arcLength * p1yr + p1.y
                     p2InX, p2InY = arcLength * p2xr + p2.x, arcLength * p2yr + p2.y
-                    p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
+                    p1Out.x, p1Out.y, p2In.x, p2In.y = p1OutX, p1OutY, p2InX, p2InY
 
                     # correct offCurve angles
                     if not simplified:
                         if prevType == 'line' and p1.smooth:  # smooth line before
-                            p1Ut.x, p1Ut.y = smoothLines(p1, p0, p1Ut)
-                        elif p1yx:  # diagonal p1Ut
-                            p1Ut.x, p1Ut.y = keepAngles(p1, p1Ut, p1yx, p1xy, p1dx, p1dy)
+                            p1Out.x, p1Out.y = smoothLines(p1, p0, p1Out)
+                        elif p1yx:  # diagonal p1Out
+                            p1Out.x, p1Out.y = keepAngles(p1, p1Out, p1yx, p1xy, p1dx, p1dy)
                             if not arrowKeyDown and self.commandDown:  # keep angle override
                                 if smoothsToo or not p1.smooth:
                                     if not selectOnly or p1.selected:
-                                        p1Ut.x, p1Ut.y = p1UtX, p1UtY
+                                        p1Out.x, p1Out.y = p1OutX, p1OutY
 
                         if nextType == 'line' and p2.smooth:  # smooth line after
                             p2In.x, p2In.y = smoothLines(p2, p3, p2In)
@@ -259,8 +259,8 @@ class ScalingEditTool(EditingTool):
 
                     # round coordinates
                     if self.snapValue:
-                        p1Ut.x = snapRound(p1Ut.x, self.snapValue)
-                        p1Ut.y = snapRound(p1Ut.y, self.snapValue)
+                        p1Out.x = snapRound(p1Out.x, self.snapValue)
+                        p1Out.y = snapRound(p1Out.y, self.snapValue)
                         p2In.x = snapRound(p2In.x, self.snapValue)
                         p2In.y = snapRound(p2In.y, self.snapValue)
             
