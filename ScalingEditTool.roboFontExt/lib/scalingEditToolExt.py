@@ -11,16 +11,21 @@ non-selected points are affected by the override. Simplified mode offers
 a more traditional operation without angle keeping.
 """
 
+
+
 from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
 from mojo.UI import getDefault
+from fontTools.misc.bezierTools import approximateCubicArcLength, calcCubicBounds
 from AppKit import NSImage
 from math import sqrt
 from os import path
 
 
+
 dirname = path.dirname(__file__)
 toolbarIcon = NSImage.alloc().initByReferencingFile_(path.join(dirname, "scalingEditToolbarIcon.pdf"))
+
 
 
 def snapRound(value, base=1):
@@ -29,20 +34,31 @@ def snapRound(value, base=1):
 
 def diff(a, b, simplified=False):
     return float(abs(a - b)) if simplified is False else float(a - b)
-
+    
+    
+def calArcLength(p1, p2, p1Ut, p2In):
+    # # Calculating by on-curve distance doesn't work well for 1-dimensional near-0 situations
+    # distX = diff(p1.x, p2.x, simplified)
+    # distY = diff(p1.y, p2.y, simplified)
+    # # Cubic bounds is getting there, but it's leading to some unexpected results for weird curves
+    # xMin, yMin, xMax, yMax = calcCubicBounds((p1.x, p1.y), (p1Ut.x, p1Ut.y), (p2In.x, p2In.y), (p2.x, p2.y))
+    # distX = xMax - xMin
+    # distY = yMax - yMin
+    # # Makes the most sense (and works best) to measure the handle length against the whole arc’s length!
+    return approximateCubicArcLength((p1.x, p1.y), (p1Ut.x, p1Ut.y), (p2In.x, p2In.y), (p2.x, p2.y))
+    
 
 def pointData(p1, p2, p1Ut, p2In, simplified):
     # distances between points:
-    distX = diff(p1.x, p2.x, simplified)
-    distY = diff(p1.y, p2.y, simplified)
+    arcLength = calArcLength(p1, p2, p1Ut, p2In)
     # relative offcurve coordinates
     p1Bcp = p1Ut.x - p1.x, p1Ut.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
     # bcp-to-distance-ratios:
-    p1xr = p1Bcp[0] / float(distX) if distX else 0
-    p2xr = p2Bcp[0] / float(distX) if distX else 0
-    p1yr = p1Bcp[1] / float(distY) if distY else 0
-    p2yr = p2Bcp[1] / float(distY) if distY else 0
+    p1xr = p1Bcp[0] / float(arcLength) if distX else 0
+    p2xr = p2Bcp[0] / float(arcLength) if distX else 0
+    p1yr = p1Bcp[1] / float(arcLength) if distY else 0
+    p2yr = p2Bcp[1] / float(arcLength) if distY else 0
     # y-to-x- and x-to-y-ratios of bcps:
     p1yx, p1xy, p2yx, p2xy = None, None, None, None
     if 0 not in p1Bcp:
@@ -92,6 +108,7 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
     return newX * pdx + p.x, newY * pdy + p.y
 
 
+
 class ScalingEditTool(EditingTool):
 
 
@@ -100,7 +117,7 @@ class ScalingEditTool(EditingTool):
 
 
     def getToolbarTip(self):
-        return "Scaling Edit"
+        return "Scaling Edit Tool"
 
 
     def additionContextualMenuItems(self):
@@ -223,10 +240,9 @@ class ScalingEditTool(EditingTool):
                     prevType, nextType = i[18], i[19]  # previous and next segment types
 
                     # scale curve
-                    newDistX = diff(p1.x, p2.x, simplified)
-                    newDistY = diff(p1.y, p2.y, simplified)
-                    p1UtX, p1UtY = newDistX * p1xr + p1.x, newDistY * p1yr + p1.y
-                    p2InX, p2InY = newDistX * p2xr + p2.x, newDistY * p2yr + p2.y
+                    arcLength = calArcLength(p1, p2, p1Ut, p2In)
+                    p1UtX, p1UtY = arcLength * p1xr + p1.x, arcLength * p1yr + p1.y
+                    p2InX, p2InY = arcLength * p2xr + p2.x, arcLength * p2yr + p2.y
                     p1Ut.x, p1Ut.y, p2In.x, p2In.y = p1UtX, p1UtY, p2InX, p2InY
 
                     # correct offCurve angles
@@ -257,9 +273,6 @@ class ScalingEditTool(EditingTool):
                         p2In.y = snapRound(p2In.y, self.snapValue)
             
             # update the selection highlight
-            # Fredrik's alternative to glyph.changed()
-            #glyph.asDefcon().selection.resetSelectionPath()
-            #glyph.asDefcon().selection.dirty = True
             self.selection.dirty = True  # this seems to do the trick
 
 
