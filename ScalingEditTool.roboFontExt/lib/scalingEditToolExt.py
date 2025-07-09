@@ -37,14 +37,6 @@ def diff(a, b, simplified=False):
     
     
 def calArcLength(p1, p2, p1Ut, p2In):
-    # # Calculating by on-curve distance doesn't work well for 1-dimensional near-0 situations
-    # distX = diff(p1.x, p2.x, simplified)
-    # distY = diff(p1.y, p2.y, simplified)
-    # # Cubic bounds is getting there, but it's leading to some unexpected results for weird curves
-    # xMin, yMin, xMax, yMax = calcCubicBounds((p1.x, p1.y), (p1Ut.x, p1Ut.y), (p2In.x, p2In.y), (p2.x, p2.y))
-    # distX = xMax - xMin
-    # distY = yMax - yMin
-    # # Makes the most sense (and works best) to measure the handle length against the whole arc’s length!
     return approximateCubicArcLength((p1.x, p1.y), (p1Ut.x, p1Ut.y), (p2In.x, p2In.y), (p2.x, p2.y))
     
 
@@ -55,10 +47,10 @@ def pointData(p1, p2, p1Ut, p2In, simplified):
     p1Bcp = p1Ut.x - p1.x, p1Ut.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
     # bcp-to-distance-ratios:
-    p1xr = p1Bcp[0] / float(arcLength) if distX else 0
-    p2xr = p2Bcp[0] / float(arcLength) if distX else 0
-    p1yr = p1Bcp[1] / float(arcLength) if distY else 0
-    p2yr = p2Bcp[1] / float(arcLength) if distY else 0
+    p1xr = p1Bcp[0] / float(arcLength) if arcLength else 0
+    p2xr = p2Bcp[0] / float(arcLength) if arcLength else 0
+    p1yr = p1Bcp[1] / float(arcLength) if arcLength else 0
+    p2yr = p2Bcp[1] / float(arcLength) if arcLength else 0
     # y-to-x- and x-to-y-ratios of bcps:
     p1yx, p1xy, p2yx, p2xy = None, None, None, None
     if 0 not in p1Bcp:
