@@ -13,17 +13,18 @@ a more traditional operation without angle keeping.
 
 
 
-CALCULATION = "arcDimensions"  # "arcLength", or "arcDimensions"
+CALCULATION = "arcLength"  # "arcLength", or "arcDimensions" or "mix"
 
 
 
 from mojo.events import EditingTool, installTool
 from mojo.extensions import getExtensionDefault, setExtensionDefault
 from mojo.UI import getDefault
-from fontTools.misc.bezierTools import approximateCubicArcLength, calcCubicBounds
+from fontTools.misc.bezierTools import approximateCubicArcLength, calcCubicBounds, splitCubicAtT
 from AppKit import NSImage
 from math import sqrt
 from os import path
+from pprint import pprint
 
 
 
@@ -40,6 +41,21 @@ def diff(a, b, simplified=False):
     return float(abs(a - b)) if simplified is False else float(a - b)
     
     
+def calcCubicXYWeighting(p1, p2, p1Out, p2In):
+    result = splitCubicAtT((p1.x, p1.y), (p1Out.x, p1Out.y), (p2In.x, p2In.y), (p2.x, p2.y), 0, 0.25, 0.5, 0.75, 1)
+    old_x, old_y = None, None
+    x_delta, y_delta = 0, 0
+    for coord_set in result:
+        for coord in coord_set:
+            if old_x is not None:
+                x_delta += coord[0] - old_x
+                y_delta += coord[1] - old_y
+            old_x, old_y = coord
+    x_delta, y_delta = abs(x_delta), abs(y_delta)
+    ratioX, ratioY = x_delta / (x_delta + y_delta), y_delta / (x_delta + y_delta)
+    return ratioX, ratioY
+
+    
 def calcArcLength(p1, p2, p1Out, p2In):
     return approximateCubicArcLength((p1.x, p1.y), (p1Out.x, p1Out.y), (p2In.x, p2In.y), (p2.x, p2.y))
     
@@ -50,6 +66,32 @@ def calcArcDimensions(p1, p2, p1Out, p2In):
     distY = yMax - yMin
     return distX, distY
     
+    
+# # Using cubic arc weighting
+# def calcArcLengthProportionate(p1, p2, p1Out, p2In):
+#     arcLength = calcArcLength(p1, p2, p1Out, p2In)
+#     ratioX, ratioY = calcCubicXYWeighting(p1, p2, p1Out, p2In)
+#     return ratioX * arcLength, ratioY * arcLength
+    
+
+# ## Using the handles
+# def calcArcLengthProportionate(p1, p2, p1Out, p2In):
+#     arcLength = calcArcLength(p1, p2, p1Out, p2In)
+#     p1dx, p1dy = p1Out.x - p1.x, p1Out.y - p1.y
+#     p2dx, p2dy = p2In.x - p2.x, p2In.y - p2.y
+#     totalX, totalY = abs(p1dx) + abs(p2dx), abs(p1dy) + abs(p2dy)
+#     totalDist = totalX + totalY
+#     ratioX, ratioY = totalX / totalDist, totalY / totalDist
+#     return ratioX * arcLength, ratioY * arcLength
+
+# Using arc bounds/dimensions    
+def calcArcLengthProportionate(p1, p2, p1Out, p2In):
+    arcLength = calcArcLength(p1, p2, p1Out, p2In)
+    distX, distY = calcArcDimensions(p1, p2, p1Out, p2In)
+    totalDist = distX + distY
+    ratioX, ratioY = distX / totalDist, distY / totalDist
+    return ratioX * arcLength, ratioY * arcLength
+    
 
 def pointData(p1, p2, p1Out, p2In, simplified):
     # distances between points
@@ -58,6 +100,8 @@ def pointData(p1, p2, p1Out, p2In, simplified):
         distX, distY = arcLength, arcLength
     elif CALCULATION == "arcDimensions":
         distX, distY = calcArcDimensions(p1, p2, p1Out, p2In)
+    elif CALCULATION == "mix":
+        distX, distY = calcArcLengthProportionate(p1, p2, p1Out, p2In)
     # relative offcurve coordinates
     p1Bcp = p1Out.x - p1.x, p1Out.y - p1.y
     p2Bcp = p2In.x - p2.x, p2In.y - p2.y
@@ -116,7 +160,7 @@ def keepAngles(p, offCurve, pyx, pxy, pdx, pdy):
 
 
 
-class ScalingEditTool(EditingTool):
+class ScalingEditToolTest(EditingTool):
 
 
     def getToolbarIcon(self):
@@ -124,7 +168,7 @@ class ScalingEditTool(EditingTool):
 
 
     def getToolbarTip(self):
-        return "Scaling Edit Tool"
+        return "Scaling Edit Tool Test"
 
 
     def additionContextualMenuItems(self):
@@ -252,6 +296,8 @@ class ScalingEditTool(EditingTool):
                         distX, distY = arcLength, arcLength
                     elif CALCULATION == "arcDimensions":
                         distX, distY = calcArcDimensions(p1, p2, p1Out, p2In)
+                    elif CALCULATION == "mix":
+                        distX, distY = calcArcLengthProportionate(p1, p2, p1Out, p2In)
 
                     p1OutX, p1OutY = distX * p1xr + p1.x, distY * p1yr + p1.y
                     p2InX, p2InY = distX * p2xr + p2.x, distY * p2yr + p2.y
@@ -289,4 +335,4 @@ class ScalingEditTool(EditingTool):
             self.selection.dirty = True  # this seems to do the trick
 
 
-installTool(ScalingEditTool())
+installTool(ScalingEditToolTest())
